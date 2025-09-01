@@ -1,4 +1,4 @@
-# vet-assist
+# Sales zoom calls with gohighlevel crm
 
 Install dependencies using ```npm i```
 
