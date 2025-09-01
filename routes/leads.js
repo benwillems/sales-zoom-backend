@@ -1,0 +1,21 @@
+const router = require('express').Router()
+const leadsController = require('../controllers/leadsController.js')
+
+router.post('/agent/call', leadsController.makeAgentCall)
+router.post('/agent/contact/call', leadsController.makeAgentCallOnNewContact)
+router.post('/call/result', leadsController.addCallResult)
+router.post('/call/campaign/result', leadsController.addCallCampaignResult)
+router.post('/calendar/availability', leadsController.getCalendarAvailability)
+router.post('/calendar/schedule', leadsController.bookMeeting)
+router.get('/fetchAllLeads', leadsController.fetchAllLeads)
+router.post('/template/create', leadsController.createTemplate)
+router.get('/template/fetch', leadsController.fetchAllTemplates)
+router.get('/template/default/:templateId', leadsController.setDefaultTemplate)
+router.get('/leads/stop/:leadId', leadsController.stopLeads)
+router.post('/leads/start/:leadId', leadsController.startLeads)
+router.post('/template/removedefault', leadsController.removeDefaultTemplate)
+router.get('/pipelines/:locationId', leadsController.fetchPipelines)
+router.get('/pipeline/opportunities/:locationId/:pipelineStageId/:startAfter?/:startAfterId?', leadsController.searchOpportunities)
+router.post('/campaign/start', leadsController.startCampaign)
+
+module.exports = router

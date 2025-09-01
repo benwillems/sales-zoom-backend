@@ -1,0 +1,612 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Organization model
+model Organization {
+  id             Int              @id @default(autoincrement())
+  name           String
+  address        String
+  phone          String?
+  email          String?          @unique
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  clients        Client[]
+  users          User[]
+  Appointment    Appointment[]
+  templates      Template[]
+  Program        Program[]
+  defaultcontext DefaultContext[]
+}
+
+model User {
+  id                    Int                     @id @default(autoincrement())
+  name                  String
+  phone                 String?
+  email                 String?                 @unique
+  fromEmailId           String?
+  licenseNumber         String?                 @unique
+  organizationId        Int
+  uniqueAuthId          String                  @unique
+  notesTemplate         Json                    @default(dbgenerated("'{}'::jsonb"))
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  roleId                Int
+  zoomUserId            String?
+  zoomAccountId         String?
+  zoomScheduleEmail     String?
+  role                  Role                    @relation(fields: [roleId], references: [id])
+  organization          Organization            @relation(fields: [organizationId], references: [id])
+  appointments          Appointment[]
+  templates             Template[]
+  messages              Messages[]
+  Program               Program[]
+  trackTalkingPointsUse TrackTalkingPointsUse[]
+  calendarId            Int?
+  calendar              Calendar?               @relation(fields: [calendarId], references: [id])
+  contexts              Context[]
+  contextProgram        ContextProgram[]
+}
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+  users       User[]
+}
+
+model Client {
+  id                    Int               @id @default(autoincrement())
+  name                  String
+  phone                 String?           @unique
+  email                 String?           @unique
+  imageUrl              String?
+  goals                 Json?             @default(dbgenerated("'[]'::jsonb"))
+  calorieGoalBreakdown  Json?             @default(dbgenerated("'{}'::jsonb"))
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  organizationId        Int
+  organization          Organization      @relation(fields: [organizationId], references: [id])
+  Appointment           Appointment[]
+  CheckIns              CheckIns[]
+  InbodyScan            InbodyScan[]
+  CheckInTemplate       CheckInTemplate[]
+  messages              Messages[]
+  checkInGoal           String?
+  checkInQuestionAsked  Boolean           @default(false)
+  active                Boolean           @default(true)
+  timeZone              String            @default("America/Los_Angeles")
+  checkInTime           DateTime?
+  lastAppointmentDate   DateTime?
+  checkInEnabled        Boolean           @default(false)
+  lastMessageViewedDate DateTime?
+  ProgramToClient       ProgramToClient[]
+  goHighLevelContactId  String?           @unique
+  opportunityStatus     OpportunityStatus?
+  opportunityValue      Int?
+  opportunityId         String?
+
+  @@index([goHighLevelContactId])
+}
+
+model Attachment {
+  id             Int              @id @default(autoincrement())
+  appointmentId  Int
+  name           String
+  createDate     DateTime         @default(now())
+  updateDate     DateTime         @updatedAt
+  metadata       Json             @default(dbgenerated("'{}'::jsonb"))
+  attachmentType String?
+  attachmentUrl  String
+  errorReason    String?
+  status         AttachmentStatus
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@index([appointmentId], name: "idx_attachment_appointmentId")
+}
+
+enum AttachmentStatus {
+  SUCCEEDED
+  FAILED
+  USER_DELETED
+}
+
+enum OpportunityStatus {
+  WON
+  LOST
+  UNKNOWN
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  RECORDING
+  PAUSED
+  PROCESSING
+  MEETING_STARTED
+  MEETING_ENDED
+  WAITING_FOR_TEMPLATE_INPUT
+  GENERATING_NOTES
+  SUCCEEDED
+  SUCCEEDED_MULTI
+  FAILED
+  USER_DELETED
+  USER_CANCELLED
+  NO_SHOW
+}
+
+enum TalkingPointState {
+  PENDING // No talking points attempted yet
+  GENERATING // LLM call is in progress
+  GENERATED // Talking points generated successfully
+}
+
+model Appointment {
+  id                    Int                     @id @default(autoincrement())
+  date                  DateTime?
+  notes                 Json?
+  title                 String?
+  description           String?
+  appointmentType       String?
+  appointmentPdfUrl     String?
+  recordingUrl          String?
+  transcriptUrl         String?
+  talkingPoints         Json?
+  email                 String?
+  meetingOccurrenceId   String?
+  meetingUUID           String?
+  isMultiMembers        Boolean                 @default(false)
+  status                AppointmentStatus
+  emailSent             Boolean                 @default(false)
+  emailSubject          String?
+  errorReason           String?
+  scheduleStartAt       DateTime?
+  scheduleEndAt         DateTime?
+  currentTimerMili      Int?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  totalScore            Float?
+  obtainedScore         Float?
+  talkingPointScore     Json?
+  meetingEnded          Boolean                 @default(false)
+  organizationId        Int
+  organization          Organization?           @relation(fields: [organizationId], references: [id])
+  userId                Int?
+  user                  User?                   @relation(fields: [userId], references: [id])
+  templateId            Int?
+  template              Template?               @relation(fields: [templateId], references: [id])
+  clientId              Int
+  client                Client?                 @relation(fields: [clientId], references: [id])
+  attachments           Attachment[]
+  zoomMeetingId         Int?
+  zoomMeeting           ZoomMeeting?            @relation(fields: [zoomMeetingId], references: [id])
+  zoomScheduledEventId  String?                 @unique
+  cancellationReason    String?
+  cancellationBy        String?
+  cancellationType      String?
+  trackTalkingPointsUse TrackTalkingPointsUse[]
+  talkingPointState     TalkingPointState?      @default(PENDING)
+  lastEventTs           BigInt?
+  goHighLevelEventId    String?                 @unique
+  userNotificationDate  DateTime?
+  userNotificationPhone String?
+
+  @@index([goHighLevelEventId])
+}
+
+model Template {
+  id                Int             @id @default(autoincrement())
+  name              String?
+  default           Boolean         @default(false)
+  notesTemplate     Json            @default(dbgenerated("'{}'::jsonb"))
+  type              String?
+  organizationId    Int
+  organization      Organization?   @relation(fields: [organizationId], references: [id])
+  userId            Int?
+  user              User?           @relation(fields: [userId], references: [id])
+  defaultTemplateId Int
+  defaultTemplate   DefaultTemplate @relation(fields: [defaultTemplateId], references: [id])
+  appointments      Appointment[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([id, userId])
+}
+
+model DefaultTemplate {
+  id            Int        @id @default(autoincrement())
+  name          String?
+  notesTemplate Json       @default(dbgenerated("'{}'::jsonb"))
+  type          String?
+  templates     Template[] // Reverse relation to access all templates linked to this default template
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Context {
+  id               Int              @id @default(autoincrement())
+  name             String?
+  userId           Int?
+  user             User?            @relation(fields: [userId], references: [id])
+  contextText      String? // Coach's customized context text
+  defaultContextId Int
+  defaultContext   DefaultContext   @relation(fields: [defaultContextId], references: [id])
+  contextProgram   ContextProgram[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model ContextProgram {
+  id         Int     @id @default(autoincrement())
+  context    Context @relation(fields: [contextId], references: [id])
+  contextId  Int
+  program    Program @relation(fields: [programId], references: [id])
+  programId  Int
+  weekNumber Int
+  userId     Int
+  user       User    @relation(fields: [userId], references: [id])
+
+  @@unique([contextId, programId, weekNumber])
+  @@unique([userId, programId, weekNumber])
+}
+
+model DefaultContext {
+  id                    Int                     @id @default(autoincrement())
+  name                  String?
+  organizationId        Int
+  organization          Organization            @relation(fields: [organizationId], references: [id])
+  contextText           String // Week-specific guide context
+  contexts              Context[]
+  defaultContextProgram DefaultContextProgram[]
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+}
+
+model DefaultContextProgram {
+  id               Int            @id @default(autoincrement())
+  defaultContext   DefaultContext @relation(fields: [defaultContextId], references: [id])
+  defaultContextId Int
+  program          Program        @relation(fields: [programId], references: [id])
+  programId        Int
+  weekNumber       Int
+
+  @@unique([programId, weekNumber])
+}
+
+enum CheckInSource {
+  AI_AGENT_CALL
+  AI_AGENT_TEXT
+}
+
+enum CheckInStatus {
+  SUCCEEDED
+  IN_PROGRESS
+  FAILED
+}
+
+model CheckIns {
+  id             Int           @id @default(autoincrement())
+  clientId       Int
+  client         Client        @relation(fields: [clientId], references: [id])
+  checkInSummary Json          @default(dbgenerated("'{}'::jsonb")) @map("calories")
+  transcript     Json          @default(dbgenerated("'[]'::jsonb"))
+  source         CheckInSource
+  status         CheckInStatus
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  day            DateTime      @default(now()) @map("checkInDay")
+}
+
+model CheckInTemplate {
+  id              Int      @id @default(autoincrement())
+  checkInTemplate Json     @default(dbgenerated("'{}'::jsonb"))
+  clientId        Int
+  client          Client?  @relation(fields: [clientId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model InbodyScan {
+  id                      Int                      @id @default(autoincrement())
+  testDateAndTime         DateTime
+  height                  String?
+  age                     Int?
+  gender                  String?
+  bodyCompositionAnalysis BodyCompositionAnalysis?
+  muscleFatAnalysis       MuscleFatAnalysis?
+  obesityAnalysis         ObesityAnalysis?
+  segmentalLeanAnalysis   SegmentalLeanAnalysis?
+  visceralFatLevel        Float?
+  basalMetabolicRate      Float?
+  ecwTbwAnalysis          ECWTBWAnalysis?
+  clientId                Int
+  client                  Client                   @relation(fields: [clientId], references: [id])
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+}
+
+model BodyCompositionAnalysis {
+  id                 Int        @id @default(autoincrement())
+  intracellularWater Float?
+  extracellularWater Float?
+  dryLeanMass        Float?
+  bodyFatMass        Float?
+  totalBodyWater     Float?
+  leanBodyMass       Float?
+  weight             Float?
+  imageUrl           String?
+  inbodyScanId       Int        @unique
+  inbodyScan         InbodyScan @relation(fields: [inbodyScanId], references: [id])
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+}
+
+model MuscleFatAnalysis {
+  id           Int        @id @default(autoincrement())
+  weight       Float?
+  smm          Float? // Skeletal Muscle Mass
+  bodyFatMass  Float?
+  inbodyScanId Int        @unique
+  inbodyScan   InbodyScan @relation(fields: [inbodyScanId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model ObesityAnalysis {
+  id           Int        @id @default(autoincrement())
+  bmi          Float? // Body Mass Index
+  pbf          Float? // Percent Body Fat
+  inbodyScanId Int        @unique
+  inbodyScan   InbodyScan @relation(fields: [inbodyScanId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model SegmentalLeanAnalysis {
+  id           Int                 @id @default(autoincrement())
+  rightArmId   Int?                @unique
+  leftArmId    Int?                @unique
+  trunkId      Int?                @unique
+  rightLegId   Int?                @unique
+  leftLegId    Int?                @unique
+  rightArm     SegmentalLeanValue? @relation("RightArm", fields: [rightArmId], references: [id])
+  leftArm      SegmentalLeanValue? @relation("LeftArm", fields: [leftArmId], references: [id])
+  trunk        SegmentalLeanValue? @relation("Trunk", fields: [trunkId], references: [id])
+  rightLeg     SegmentalLeanValue? @relation("RightLeg", fields: [rightLegId], references: [id])
+  leftLeg      SegmentalLeanValue? @relation("LeftLeg", fields: [leftLegId], references: [id])
+  inbodyScanId Int                 @unique
+  inbodyScan   InbodyScan          @relation(fields: [inbodyScanId], references: [id])
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model SegmentalLeanValue {
+  id               Int                    @id @default(autoincrement())
+  pounds           Float?
+  percentage       Float?
+  rightArmAnalysis SegmentalLeanAnalysis? @relation("RightArm")
+  leftArmAnalysis  SegmentalLeanAnalysis? @relation("LeftArm")
+  trunkAnalysis    SegmentalLeanAnalysis? @relation("Trunk")
+  rightLegAnalysis SegmentalLeanAnalysis? @relation("RightLeg")
+  leftLegAnalysis  SegmentalLeanAnalysis? @relation("LeftLeg")
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+}
+
+model ECWTBWAnalysis {
+  id           Int        @id @default(autoincrement())
+  ecwTbw       Float?
+  inbodyScanId Int        @unique
+  inbodyScan   InbodyScan @relation(fields: [inbodyScanId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+}
+
+enum MessageOwner {
+  USER
+  ASSISTANT
+}
+
+model Messages {
+  id           Int          @id @default(autoincrement())
+  clientId     Int
+  client       Client       @relation(fields: [clientId], references: [id])
+  message      String
+  messageType  MessageType
+  imageUrl     String?
+  messageOwner MessageOwner
+  userId       Int?
+  user         User?        @relation(fields: [userId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Program {
+  id                    Int                     @id @default(autoincrement())
+  name                  String
+  userId                Int
+  user                  User                    @relation(fields: [userId], references: [id])
+  organizationId        Int
+  organization          Organization            @relation(fields: [organizationId], references: [id])
+  duration              Int
+  price                 Int?
+  description           String?
+  active                Boolean                 @default(true)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  ProgramToClient       ProgramToClient[]
+  defaultContextProgram DefaultContextProgram[]
+  contextProgram        ContextProgram[]
+}
+
+enum ProgramStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+  SCHEDULED
+}
+
+model ProgramToClient {
+  id            Int           @id @default(autoincrement())
+  programId     Int
+  program       Program       @relation(fields: [programId], references: [id])
+  clientId      Int
+  client        Client        @relation(fields: [clientId], references: [id])
+  ProgramStatus ProgramStatus
+  startDate     DateTime
+  endDate       DateTime
+  pauseDates    String[]      @default([])
+  cancelDate    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ZoomMeeting {
+  id                 Int           @id @default(autoincrement())
+  meetingId          BigInt
+  meetingPassword    String?
+  meetingTopic       String
+  meetingDescription String?
+  meetingStartTime   DateTime?
+  meetingDuration    Int?
+  meetingTimezone    String?
+  meetingStartUrl    String
+  meetingJoinUrl     String
+  meetingManageUrl   String?
+  recurring          Boolean?      @default(false)
+  endDate            DateTime?
+  endAfter           Int? // Number of occurrences max zoom allows is 60
+  repeatInterval     Int?
+  monthlyDay         Int?
+  monthlyWeek        Int? // -1, 1, 2, 3, 4
+  monthlyWeekDay     Int? // 1, 2, 3, 4, 5, 6, 7
+  weeklyDays         Int[] // 1, 2, 3, 4, 5, 6, 7
+  occurrences        Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime?     @updatedAt
+  appointments       Appointment[]
+  lastEventTs        BigInt?
+}
+
+enum LeadsCallStatus {
+  CALL_SENT
+  CALL_NOT_ANSWERED
+  CALL_COMPLETED
+  CALL_FAILED
+  MEETING_BOOKED
+  CALL_SCHEDULED
+  USER_DECLINED
+}
+
+enum LeadCampaignStatus {
+  WAITING_TO_BE_CALLED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model Leads {
+  id               Int                 @id @default(autoincrement())
+  name             String
+  phone            String?             @unique
+  email            String?
+  crmContactId     String?
+  crmLocationId    String?
+  crmCalendarId    String?
+  campaignId       Int?
+  campaign         Campaign?           @relation(fields: [campaignId], references: [id])
+  status           LeadCampaignStatus?
+  tags             String[]            @default([])
+  recurrenceActive Boolean             @default(false)
+  recurrenceDate   DateTime?           @default(now())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime?           @updatedAt
+  LeadsCall        LeadsCall[]
+}
+
+model LeadsTemplate {
+  id           Int       @id @default(autoincrement())
+  name         String
+  active       Boolean   @default(true)
+  userTemplate Json      @default(dbgenerated("'{}'::jsonb"))
+  template     Json      @default(dbgenerated("'{}'::jsonb"))
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime? @updatedAt
+}
+
+model LeadsCall {
+  id               Int             @id @default(autoincrement())
+  callId           String?         @unique
+  calledDate       DateTime?
+  duration         Float?
+  bookingDate      DateTime?
+  crmAppointmentId String?
+  campaignId       Int?
+  campaign         Campaign?       @relation(fields: [campaignId], references: [id])
+  status           LeadsCallStatus
+  leadsId          Int
+  leads            Leads           @relation(fields: [leadsId], references: [id])
+  programs         Json?           @default(dbgenerated("'{}'::jsonb"))
+  transcript       Json?           @default(dbgenerated("'{}'::jsonb"))
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime?       @updatedAt
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+model Campaign {
+  id              Int            @id @default(autoincrement())
+  name            String
+  status          CampaignStatus
+  leads           Leads[]
+  pipelineId      String
+  pipelineStageId String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  LeadsCall       LeadsCall[]
+}
+
+model TrackTalkingPointsUse {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id])
+  metaData      Json?       @default(dbgenerated("'{}'::jsonb"))
+  appointmentId Int
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  purpose       String?
+  createdAt     DateTime    @default(now())
+}
+
+enum calendarAccountType {
+  GOOGLE
+  MICROSOFT
+}
+
+model Calendar {
+  id               Int                 @id @default(autoincrement())
+  name             String?
+  email            String?
+  accountType      calendarAccountType
+  accountId        String?
+  scope            String[]
+  webHookId        String?
+  webHookExpiresAt DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  users            User[]
+}

@@ -1,0 +1,11 @@
+node_modules
+.env
+.vscode
+Dockerfile
+sendgrid.env
+prisma/migrations
+testfile.js
+guideWeek2.json
+notesWeek1.json
+.env.local
+setupTestData.js
