@@ -49,8 +49,8 @@ const jwksRsa = require('jwks-rsa');
 const { webhook } = require('twilio/lib/webhooks/webhooks');
 const auth0Issuer = process.env.AUTH0_ISSUER_BASE_URL
 const audience = [
-  'https://myvetassist.com',
-  'https://vet-assist.us.auth0.com/userinfo',
+  'https://coachally.ai',
+  'https://coachally.us.auth0.com/userinfo',
   process.env.FIREBASE_PROJECT_ID
 ]
 
